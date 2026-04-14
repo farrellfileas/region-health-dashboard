@@ -88,7 +88,7 @@ resource "oci_core_security_list" "worker" {
         source   = "10.0.1.0/24"
     }
 
-    # Allows SSH access to worker nodes from OKE CP
+    # Allows SSH access to worker nodes from OKE CP to bootstrap new nodes
     ingress_security_rules {
         protocol = "6"
         source   = "0.0.0.0/0" # Allow from anywhere for testing; restrict in production
