@@ -1,5 +1,5 @@
 resource "oci_containerengine_cluster" "cp" {
-    compartment_id     = local.compartment_id
+    compartment_id     = var.compartment_id
     kubernetes_version = local.kubernetes_version
     name               = "OKE-Cluster"
     vcn_id             = oci_core_vcn.main.id
@@ -13,10 +13,10 @@ resource "oci_containerengine_cluster" "cp" {
 }
 
 resource "oci_containerengine_node_pool" "worker" {
-    cluster_id        = oci_containerengine_cluster.cp.id
-    compartment_id     = local.compartment_id
+    cluster_id         = oci_containerengine_cluster.cp.id
+    compartment_id     = var.compartment_id
     name               = "OKE-Node-Pool"
-    node_shape        = "VM.Standard.A1.Flex"
+    node_shape         = "VM.Standard.A1.Flex"
     kubernetes_version = local.kubernetes_version
     
     node_source_details {
