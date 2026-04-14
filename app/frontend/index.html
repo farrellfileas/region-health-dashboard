@@ -1,0 +1,103 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>OCI Region Health</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body { font-family: system-ui, sans-serif; background: #0f1117; color: #e2e8f0; padding: 2rem; }
+    h1 { font-size: 1.5rem; margin-bottom: 0.5rem; }
+    #status-banner { display: inline-block; padding: 0.25rem 0.75rem; border-radius: 4px; font-size: 0.875rem; font-weight: 600; margin-bottom: 2rem; }
+    .ok    { background: #166534; color: #bbf7d0; }
+    .degraded { background: #7f1d1d; color: #fecaca; }
+    .unknown  { background: #374151; color: #d1d5db; }
+    table { width: 100%; border-collapse: collapse; font-size: 0.875rem; }
+    th { text-align: left; padding: 0.5rem 0.75rem; border-bottom: 1px solid #374151; color: #94a3b8; font-weight: 500; }
+    td { padding: 0.5rem 0.75rem; border-bottom: 1px solid #1e2533; }
+    tr:last-child td { border-bottom: none; }
+    .sev-P1 { color: #f87171; font-weight: 700; }
+    .sev-P2 { color: #fb923c; font-weight: 600; }
+    .sev-P3 { color: #facc15; }
+    .sev-P4 { color: #94a3b8; }
+    .resolved { color: #4ade80; }
+    .open     { color: #f87171; }
+    #last-updated { font-size: 0.75rem; color: #64748b; margin-top: 1rem; }
+  </style>
+</head>
+<body>
+  <h1>OCI Region Health Dashboard</h1>
+  <div id="status-banner" class="unknown">Checking...</div>
+
+  <table>
+    <thead>
+      <tr>
+        <th>ID</th>
+        <th>Region</th>
+        <th>Severity</th>
+        <th>Title</th>
+        <th>Started</th>
+        <th>Status</th>
+      </tr>
+    </thead>
+    <tbody id="incidents-body">
+      <tr><td colspan="6" style="color:#64748b">Loading...</td></tr>
+    </tbody>
+  </table>
+  <div id="last-updated"></div>
+
+  <script>
+    const API_BASE = window.API_BASE || '';
+
+    function fmt(ts) {
+      if (!ts) return '—';
+      return new Date(ts).toISOString().replace('T', ' ').slice(0, 19) + ' UTC';
+    }
+
+    async function refresh() {
+      try {
+        const [healthRes, incRes] = await Promise.all([
+          fetch(API_BASE + '/health'),
+          fetch(API_BASE + '/incidents'),
+        ]);
+
+        const health = await healthRes.json();
+        const banner = document.getElementById('status-banner');
+        if (health.status === 'ok') {
+          banner.textContent = 'All Systems Operational';
+          banner.className = 'ok';
+        } else {
+          banner.textContent = 'Service Degraded';
+          banner.className = 'degraded';
+        }
+
+        const { incidents } = await incRes.json();
+        const tbody = document.getElementById('incidents-body');
+        if (!incidents.length) {
+          tbody.innerHTML = '<tr><td colspan="6" style="color:#64748b">No incidents</td></tr>';
+        } else {
+          tbody.innerHTML = incidents.map(i => `
+            <tr>
+              <td>${i.id}</td>
+              <td>${i.region}</td>
+              <td class="sev-${i.severity}">${i.severity}</td>
+              <td>${i.title}</td>
+              <td>${fmt(i.started_at)}</td>
+              <td class="${i.resolved_at ? 'resolved' : 'open'}">${i.resolved_at ? 'Resolved' : 'Open'}</td>
+            </tr>
+          `).join('');
+        }
+      } catch {
+        const banner = document.getElementById('status-banner');
+        banner.textContent = 'API Unreachable';
+        banner.className = 'degraded';
+      }
+      document.getElementById('last-updated').textContent =
+        'Last updated: ' + new Date().toUTCString();
+    }
+
+    refresh();
+    setInterval(refresh, 30000);
+  </script>
+</body>
+</html>
