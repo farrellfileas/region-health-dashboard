@@ -2,13 +2,13 @@ apiVersion: v1
 kind: Service
 metadata:
   name: postgres
-  namespace: oci-health
+  namespace: region-health
   labels:
     app.kubernetes.io/name: postgres
     app.kubernetes.io/component: database
 spec:
   clusterIP: None   # headless — required for StatefulSet DNS
-  selector:
+  selector: 
     app.kubernetes.io/name: postgres
   ports:
     - name: postgres

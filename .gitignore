@@ -39,3 +39,6 @@ secrets/
 
 # Claude
 CLAUDE.md
+
+# Kubernetes
+*secret*.yaml
