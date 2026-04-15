@@ -1,6 +1,7 @@
 resource "oci_core_vcn" "main" {
     compartment_id = var.compartment_id
     cidr_block     = "10.0.0.0/16"
+    display_name   = "OKE-VCN"
 }
 
 resource "oci_core_subnet" "endpoint" {
@@ -9,6 +10,7 @@ resource "oci_core_subnet" "endpoint" {
     cidr_block        = "10.0.0.0/24"
     route_table_id    = oci_core_route_table.rt.id
     security_list_ids = [oci_core_security_list.endpoint.id]
+    display_name     = "OKE-Endpoint-Subnet"
 }
 
 resource "oci_core_subnet" "worker" {
@@ -17,6 +19,7 @@ resource "oci_core_subnet" "worker" {
     cidr_block        = "10.0.1.0/24"
     route_table_id    = oci_core_route_table.rt.id
     security_list_ids = [oci_core_security_list.worker.id]
+    display_name     = "OKE-Worker-Subnet"
 }
 
 resource "oci_core_internet_gateway" "igw" {
@@ -28,6 +31,7 @@ resource "oci_core_internet_gateway" "igw" {
 resource "oci_core_route_table" "rt" {
     compartment_id = var.compartment_id
     vcn_id         = oci_core_vcn.main.id
+    display_name = "OKE-Route-Table"
 
     route_rules {
         destination       = "0.0.0.0/0"
