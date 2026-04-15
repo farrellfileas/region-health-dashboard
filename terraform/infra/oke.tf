@@ -21,7 +21,7 @@ resource "oci_containerengine_node_pool" "worker" {
     
     node_source_details {
         source_type = "IMAGE"
-        image_id   = data.oci_core_images.oke-node-image.images[0].id
+        image_id   = data.oci_core_images.oke_node_image.images[0].id
     }
 
     node_shape_config {
