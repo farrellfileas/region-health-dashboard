@@ -38,6 +38,10 @@ resource "oci_containerengine_node_pool" "worker" {
       availability_domain = data.oci_identity_availability_domains.ads.availability_domains[1].name
       subnet_id           = oci_core_subnet.worker.id
     }
+    placement_configs {
+      availability_domain = data.oci_identity_availability_domains.ads.availability_domains[2].name
+      subnet_id           = oci_core_subnet.worker.id
+    }
     size = 2
   }
 }
