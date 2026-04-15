@@ -1,3 +1,3 @@
 locals {
-    kubernetes_version = "v1.32.1"
+  kubernetes_version = "v1.32.1"
 }
