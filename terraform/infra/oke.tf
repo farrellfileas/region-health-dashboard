@@ -16,17 +16,17 @@ resource "oci_containerengine_node_pool" "worker" {
   cluster_id         = oci_containerengine_cluster.cp.id
   compartment_id     = var.compartment_id
   name               = "OKE-Node-Pool"
-  node_shape         = "VM.Standard.A1.Flex"
+  node_shape         = "VM.Standard.E5.Flex"
   kubernetes_version = local.kubernetes_version
 
   node_source_details {
     source_type = "IMAGE"
-    image_id    = data.oci_core_images.oke_node_image.images[0].id
+    image_id    = local.worker_image_id
   }
 
   node_shape_config {
     ocpus         = 2
-    memory_in_gbs = 12
+    memory_in_gbs = 16
   }
 
   node_config_details {
