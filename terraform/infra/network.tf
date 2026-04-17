@@ -1,13 +1,13 @@
 resource "oci_core_vcn" "main" {
   compartment_id = var.compartment_id
-  cidr_block     = "10.0.0.0/16"
+  cidr_block     = local.vcn_cidr
   display_name   = "OKE-VCN"
 }
 
 resource "oci_core_subnet" "endpoint" {
   compartment_id    = var.compartment_id
   vcn_id            = oci_core_vcn.main.id
-  cidr_block        = "10.0.0.0/24"
+  cidr_block        = local.endpoint_subnet_cidr
   route_table_id    = oci_core_route_table.rt.id
   security_list_ids = [oci_core_security_list.endpoint.id]
   display_name      = "OKE-Endpoint-Subnet"
@@ -16,7 +16,7 @@ resource "oci_core_subnet" "endpoint" {
 resource "oci_core_subnet" "worker" {
   compartment_id    = var.compartment_id
   vcn_id            = oci_core_vcn.main.id
-  cidr_block        = "10.0.1.0/24"
+  cidr_block        = local.worker_subnet_cidr
   route_table_id    = oci_core_route_table.rt.id
   security_list_ids = [oci_core_security_list.worker.id]
   display_name      = "OKE-Worker-Subnet"
@@ -54,13 +54,49 @@ resource "oci_core_security_list" "endpoint" {
     }
   }
 
-  # Allows Kubernetes API server to communicate with worker nodes
+  # Kubernetes worker to Kubernetes API endpoint communication.
+  ingress_security_rules {
+    protocol = "6"
+    source   = local.worker_subnet_cidr
+    tcp_options {
+      max = 12250
+      min = 12250
+    }
+  }
+
+  # Kubernetes worker to Kubernetes API endpoint communication.
+  ingress_security_rules {
+    protocol = "6"
+    source   = local.worker_subnet_cidr
+    tcp_options {
+      max = 6443
+      min = 6443
+    }
+  }
+
+  # Path Discovery.
+  ingress_security_rules {
+    protocol = "1" # ICMP
+    source   = local.worker_subnet_cidr
+    icmp_options {
+      type = 3
+      code = 4
+    }
+  }
+
+  # All traffic to worker nodes (when using flannel for pod networking).
   egress_security_rules {
     protocol    = "6"
-    destination = "10.0.1.0/24"
-    tcp_options {
-      max = 10250 # Kubelet API port in worker nodes
-      min = 10250
+    destination = local.worker_subnet_cidr
+  }
+
+  # Path Discovery.
+  egress_security_rules {
+    protocol    = "1" # ICMP
+    destination = local.worker_subnet_cidr
+    icmp_options {
+      type = 3
+      code = 4
     }
   }
 }
@@ -70,20 +106,10 @@ resource "oci_core_security_list" "worker" {
   vcn_id         = oci_core_vcn.main.id
   display_name   = "OKE-Worker-Security-List"
 
-  # Allows Kubernetes API server to communicate with worker nodes
-  ingress_security_rules {
-    protocol = "6" # TCP
-    source   = "10.0.0.0/24"
-    tcp_options {
-      max = 10250 # Kubelet API port
-      min = 10250
-    }
-  }
-
-  # Allows inbound from other workers
+  # Allows communication from (or to) worker nodes.
   ingress_security_rules {
     protocol = "all"
-    source   = "10.0.1.0/24"
+    source   = local.worker_subnet_cidr
   }
 
   # Allows SSH access to worker nodes from OKE CP to bootstrap new nodes
@@ -96,11 +122,22 @@ resource "oci_core_security_list" "worker" {
     }
   }
 
-  # Allow outbound to other workers
-  egress_security_rules {
-    protocol    = "all"
-    destination = "10.0.1.0/24"
+  # Allow Kubernetes API endpoint to communicate with worker nodes.
+  ingress_security_rules {
+    protocol = "6"
+    source   = local.endpoint_subnet_cidr
   }
+
+  # Path Discovery.
+  ingress_security_rules {
+    protocol = "1" # ICMP
+    source   = "0.0.0.0/0"
+    icmp_options {
+      type = 3
+      code = 4
+    }
+  }
+
 
   # Allows worker nodes to access the Internet for updates and pulling container images
   egress_security_rules {
@@ -109,13 +146,39 @@ resource "oci_core_security_list" "worker" {
     # No port restrictions for outbound.
   }
 
-  # Allows worker nodes to communicate with Kubernetes API server
+  # Allows communication from (or to) worker nodes.
+  egress_security_rules {
+    protocol    = "all"
+    destination = local.endpoint_subnet_cidr
+  }
+
+  # Kubernetes worker to Kubernetes API endpoint communication.
   egress_security_rules {
     protocol    = "6"
-    destination = "10.0.0.0/24"
+    destination = local.worker_subnet_cidr
+    tcp_options {
+      max = 12250
+      min = 12250
+    }
+  }
+
+  # Kubernetes worker to Kubernetes API endpoint communication.
+  egress_security_rules {
+    protocol    = "6"
+    destination = local.worker_subnet_cidr
     tcp_options {
       max = 6443
       min = 6443
+    }
+  }
+
+  # Path Discovery.
+  egress_security_rules {
+    protocol    = "1" # ICMP
+    destination = "0.0.0.0/0"
+    icmp_options {
+      type = 3
+      code = 4
     }
   }
 }
