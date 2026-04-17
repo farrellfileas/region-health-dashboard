@@ -4,6 +4,7 @@
 *.tfstate.backup
 .terraform/
 .terraform.lock.hcl
+terraform/infra/.terraform.tfstate.lock.info
 crash.log
 
 # OCI credentials
