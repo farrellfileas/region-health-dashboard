@@ -155,7 +155,7 @@ resource "oci_core_security_list" "worker" {
   # Kubernetes worker to Kubernetes API endpoint communication.
   egress_security_rules {
     protocol    = "6"
-    destination = local.worker_subnet_cidr
+    destination = local.endpoint_subnet_cidr
     tcp_options {
       max = 12250
       min = 12250
@@ -165,7 +165,7 @@ resource "oci_core_security_list" "worker" {
   # Kubernetes worker to Kubernetes API endpoint communication.
   egress_security_rules {
     protocol    = "6"
-    destination = local.worker_subnet_cidr
+    destination = local.endpoint_subnet_cidr
     tcp_options {
       max = 6443
       min = 6443
