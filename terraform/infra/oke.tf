@@ -9,7 +9,7 @@ resource "oci_containerengine_cluster" "cp" {
     is_public_ip_enabled = true
   }
 
-  type = "BASIC_CLUSTER"
+  type = "ENHANCED_CLUSTER"
 }
 
 resource "oci_containerengine_node_pool" "worker" {
