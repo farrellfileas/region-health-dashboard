@@ -1,8 +1,16 @@
+#####################
+##       VCN       ##
+#####################
+
 resource "oci_core_vcn" "main" {
   compartment_id = var.compartment_id
   cidr_block     = local.vcn_cidr
   display_name   = "OKE-VCN"
 }
+
+#####################
+##     Subnets     ##
+#####################
 
 resource "oci_core_subnet" "endpoint" {
   compartment_id    = var.compartment_id
@@ -22,11 +30,19 @@ resource "oci_core_subnet" "worker" {
   display_name      = "OKE-Worker-Subnet"
 }
 
+#####################
+## Internet Gateway ##
+#####################
+
 resource "oci_core_internet_gateway" "igw" {
   compartment_id = var.compartment_id
   vcn_id         = oci_core_vcn.main.id
   enabled        = true
 }
+
+#####################
+##   Route Table   ##
+#####################
 
 resource "oci_core_route_table" "rt" {
   compartment_id = var.compartment_id
@@ -37,7 +53,38 @@ resource "oci_core_route_table" "rt" {
     destination       = "0.0.0.0/0"
     network_entity_id = oci_core_internet_gateway.igw.id
   }
+
+  route_rules {
+    destination_type  = "SERVICE_CIDR_BLOCK"
+    destination       = data.oci_core_services.all.services[0].cidr_block
+    network_entity_id = oci_core_service_gateway.sgw.id
+  }
 }
+
+#####################
+## Service Gateway ##
+#####################
+
+data "oci_core_services" "all" {
+  filter {
+    name   = "name"
+    values = ["All .* Services In Oracle Services Network"]
+    regex  = true
+  }
+}
+
+resource "oci_core_service_gateway" "sgw" {
+  compartment_id = var.compartment_id
+  vcn_id         = oci_core_vcn.main.id
+
+  services {
+    service_id = data.oci_core_services.all.services[0].id
+  }
+}
+
+###########################
+## Security List Endpoint ##
+###########################
 
 resource "oci_core_security_list" "endpoint" {
   compartment_id = var.compartment_id
@@ -100,6 +147,10 @@ resource "oci_core_security_list" "endpoint" {
     }
   }
 }
+
+##########################
+## Security List Worker  ##
+##########################
 
 resource "oci_core_security_list" "worker" {
   compartment_id = var.compartment_id
