@@ -16,7 +16,7 @@ resource "oci_core_subnet" "endpoint" {
   compartment_id    = var.compartment_id
   vcn_id            = oci_core_vcn.main.id
   cidr_block        = local.endpoint_subnet_cidr
-  route_table_id    = oci_core_route_table.rt.id
+  route_table_id    = oci_core_route_table.endpoint_rt.id
   security_list_ids = [oci_core_security_list.endpoint.id]
   display_name      = "OKE-Endpoint-Subnet"
 }
@@ -25,33 +25,34 @@ resource "oci_core_subnet" "worker" {
   compartment_id    = var.compartment_id
   vcn_id            = oci_core_vcn.main.id
   cidr_block        = local.worker_subnet_cidr
-  route_table_id    = oci_core_route_table.rt.id
+  route_table_id    = oci_core_route_table.worker_rt.id
   security_list_ids = [oci_core_security_list.worker.id]
   display_name      = "OKE-Worker-Subnet"
-}
-
-#####################
-## Internet Gateway ##
-#####################
-
-resource "oci_core_internet_gateway" "igw" {
-  compartment_id = var.compartment_id
-  vcn_id         = oci_core_vcn.main.id
-  enabled        = true
 }
 
 #####################
 ##   Route Table   ##
 #####################
 
-resource "oci_core_route_table" "rt" {
+resource "oci_core_route_table" "endpoint_rt" {
   compartment_id = var.compartment_id
   vcn_id         = oci_core_vcn.main.id
-  display_name   = "OKE-Route-Table"
+  display_name   = "endpoint_route_table"
 
   route_rules {
     destination       = "0.0.0.0/0"
     network_entity_id = oci_core_internet_gateway.igw.id
+  }
+}
+
+resource "oci_core_route_table" "worker_rt" {
+  compartment_id = var.compartment_id
+  vcn_id         = oci_core_vcn.main.id
+  display_name   = "worker_route_table"
+
+  route_rules {
+    destination       = "0.0.0.0/0"
+    network_entity_id = oci_core_nat_gateway.ngw.id
   }
 
   route_rules {
@@ -59,6 +60,26 @@ resource "oci_core_route_table" "rt" {
     destination       = data.oci_core_services.all.services[0].cidr_block
     network_entity_id = oci_core_service_gateway.sgw.id
   }
+}
+
+
+######################
+## Internet Gateway ##
+######################
+
+resource "oci_core_internet_gateway" "igw" {
+  compartment_id = var.compartment_id
+  vcn_id         = oci_core_vcn.main.id
+  enabled        = true
+}
+
+######################
+## NAT Gateway ##
+######################
+
+resource "oci_core_nat_gateway" "ngw" {
+  compartment_id = var.compartment_id
+  vcn_id         = oci_core_vcn.main.id
 }
 
 #####################
@@ -146,6 +167,17 @@ resource "oci_core_security_list" "endpoint" {
       code = 4
     }
   }
+
+  # Allow nodes to communicate with OKE.
+  egress_security_rules {
+    protocol         = "6"
+    destination_type = "SERVICE_CIDR_BLOCK"
+    destination      = data.oci_core_services.all.services[0].cidr_block
+    tcp_options {
+      min = 443
+      max = 443
+    }
+  }
 }
 
 ##########################
@@ -230,6 +262,17 @@ resource "oci_core_security_list" "worker" {
     icmp_options {
       type = 3
       code = 4
+    }
+  }
+
+  # Allow nodes to communicate with OKE.
+  egress_security_rules {
+    protocol         = "6"
+    destination_type = "SERVICE_CIDR_BLOCK"
+    destination      = data.oci_core_services.all.services[0].cidr_block
+    tcp_options {
+      min = 443
+      max = 443
     }
   }
 }
