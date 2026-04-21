@@ -30,6 +30,15 @@ resource "oci_core_subnet" "worker" {
   display_name      = "worker"
 }
 
+resource "oci_core_subnet" "lb" {
+  compartment_id    = var.compartment_id
+  vcn_id            = oci_core_vcn.main.id
+  cidr_block        = local.lb_subnet_cidr
+  route_table_id    = oci_core_route_table.lb_rt.id
+  security_list_ids = [oci_core_security_list.lb.id]
+  display_name      = "lb"
+}
+
 #####################
 ##   Route Table   ##
 #####################
@@ -59,6 +68,17 @@ resource "oci_core_route_table" "worker_rt" {
     destination_type  = "SERVICE_CIDR_BLOCK"
     destination       = data.oci_core_services.all.services[0].cidr_block
     network_entity_id = oci_core_service_gateway.sgw.id
+  }
+}
+
+resource "oci_core_route_table" "lb_rt" {
+  compartment_id = var.compartment_id
+  vcn_id         = oci_core_vcn.main.id
+  display_name   = "lb_route_table"
+
+  route_rules {
+    destination       = "0.0.0.0/0"
+    network_entity_id = oci_core_internet_gateway.igw.id
   }
 }
 
@@ -231,6 +251,15 @@ resource "oci_core_security_list" "worker" {
     }
   }
 
+  # Allow LB to run health check in worker node
+  ingress_security_rules {
+    protocol    = "6"
+    source = local.lb_subnet_cidr
+    tcp_options {
+      min = 10256
+      max = 10256
+    }
+  }
 
   # Allows worker nodes to access the Internet for updates and pulling container images
   egress_security_rules {
@@ -283,6 +312,45 @@ resource "oci_core_security_list" "worker" {
     tcp_options {
       min = 443
       max = 443
+    }
+  }
+}
+
+######################
+## Security List LB ##
+######################
+resource "oci_core_security_list" "lb" {
+  compartment_id = var.compartment_id
+  vcn_id         = oci_core_vcn.main.id
+  display_name   = "lb"
+
+  # Allow internet to access LB from port 80
+  ingress_security_rules {
+    protocol = "6"
+    source   = "0.0.0.0/0"
+    tcp_options {
+      min = 80
+      max = 80
+    }
+  }
+
+  # Allow LB to communicate with worker nodes at port 30000 - 32767
+  egress_security_rules {
+    protocol    = "6"
+    destination = local.worker_subnet_cidr
+    tcp_options {
+      min = 30000
+      max = 32767
+    }
+  }
+
+  # Allow LB to run health check in worker node
+  egress_security_rules {
+    protocol    = "6"
+    destination = local.worker_subnet_cidr
+    tcp_options {
+      min = 10256
+      max = 10256
     }
   }
 }
