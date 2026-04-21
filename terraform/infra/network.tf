@@ -5,7 +5,7 @@
 resource "oci_core_vcn" "main" {
   compartment_id = var.compartment_id
   cidr_block     = local.vcn_cidr
-  display_name   = "OKE-VCN"
+  display_name   = "main"
 }
 
 #####################
@@ -18,7 +18,7 @@ resource "oci_core_subnet" "endpoint" {
   cidr_block        = local.endpoint_subnet_cidr
   route_table_id    = oci_core_route_table.endpoint_rt.id
   security_list_ids = [oci_core_security_list.endpoint.id]
-  display_name      = "OKE-Endpoint-Subnet"
+  display_name      = "endpoint"
 }
 
 resource "oci_core_subnet" "worker" {
@@ -27,7 +27,7 @@ resource "oci_core_subnet" "worker" {
   cidr_block        = local.worker_subnet_cidr
   route_table_id    = oci_core_route_table.worker_rt.id
   security_list_ids = [oci_core_security_list.worker.id]
-  display_name      = "OKE-Worker-Subnet"
+  display_name      = "worker"
 }
 
 #####################
@@ -103,14 +103,14 @@ resource "oci_core_service_gateway" "sgw" {
   }
 }
 
-###########################
+############################
 ## Security List Endpoint ##
-###########################
+############################
 
 resource "oci_core_security_list" "endpoint" {
   compartment_id = var.compartment_id
   vcn_id         = oci_core_vcn.main.id
-  display_name   = "OKE-Security-List"
+  display_name   = "endpoint"
 
   # Allows Internet access to Kubernetes API server
   ingress_security_rules {
@@ -181,13 +181,13 @@ resource "oci_core_security_list" "endpoint" {
 }
 
 ##########################
-## Security List Worker  ##
+## Security List Worker ##
 ##########################
 
 resource "oci_core_security_list" "worker" {
   compartment_id = var.compartment_id
   vcn_id         = oci_core_vcn.main.id
-  display_name   = "OKE-Worker-Security-List"
+  display_name   = "worker"
 
   # Allows communication from (or to) worker nodes.
   ingress_security_rules {
@@ -202,6 +202,16 @@ resource "oci_core_security_list" "worker" {
     tcp_options {
       max = 22 # SSH port
       min = 22
+    }
+  }
+
+  # Allows node to receive traffic from LB in port 30000 - 32767
+  ingress_security_rules {
+    protocol = "6"
+    source   = local.lb_subnet_cidr
+    tcp_options {
+      min = 30000
+      max = 32767
     }
   }
 
@@ -232,7 +242,7 @@ resource "oci_core_security_list" "worker" {
   # Allows communication from (or to) worker nodes.
   egress_security_rules {
     protocol    = "all"
-    destination = local.endpoint_subnet_cidr
+    destination = local.worker_subnet_cidr
   }
 
   # Kubernetes worker to Kubernetes API endpoint communication.
