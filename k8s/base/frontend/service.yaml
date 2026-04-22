@@ -3,17 +3,11 @@ kind: Service
 metadata:
   name: frontend-service
   namespace: region-health
-  annotations:
-    service.beta.kubernetes.io/oci-load-balancer-subnet1: "ocid1.subnet.oc1.phx.aaaaaaaauysiwy442yszhqb2elc36cshr2lozdoe3k5v5epmprw2hr7qzvqq"
-    service.beta.kubernetes.io/oci-load-balancer-shape: "flexible"
-    service.beta.kubernetes.io/oci-load-balancer-shape-flex-min: "10"
-    service.beta.kubernetes.io/oci-load-balancer-shape-flex-max: "100"
   labels:
     app.kubernetes.io/name: frontend
 spec:
   selector:
     app.kubernetes.io/name: frontend
-  type: LoadBalancer
   ports:
     - protocol: TCP
       port: 80
