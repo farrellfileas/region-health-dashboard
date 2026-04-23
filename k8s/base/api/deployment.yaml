@@ -19,7 +19,7 @@ spec:
         - name: ocir-secret
       containers:
         - name: api
-          image: phx.ocir.io/axhcuwsuvvsi/region-health/api:v1
+          image: phx.ocir.io/axhcuwsuvvsi/region-health/api:37d5f78
           ports:
             - containerPort: 8000
           env:
