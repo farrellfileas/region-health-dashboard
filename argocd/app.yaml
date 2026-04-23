@@ -1,0 +1,20 @@
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: region-health
+  namespace: argocd
+spec:
+  project: default
+  source:
+    repoURL: https://github.com/farrellfileas/region-health-dashboard
+    targetRevision: HEAD
+    path: k8s/base
+    directory:
+      recurse: true
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: region-health
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
