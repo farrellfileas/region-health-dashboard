@@ -1,0 +1,4 @@
+config:
+  clients:
+    - url: http://loki-gateway.region-health.svc.cluster.local/loki/api/v1/push
+      tenant_id: loki

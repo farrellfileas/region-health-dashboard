@@ -1,0 +1,21 @@
+datasources:
+ datasources.yaml:
+   apiVersion: 1
+   datasources:
+   - name: Prometheus
+     type: prometheus
+     url: http://prometheus-server.region-health.svc.cluster.local
+     access: proxy
+     isDefault: true
+   - name: Loki
+     type: loki
+     url: http://loki-gateway.region-health.svc.cluster.local
+     access: proxy
+     jsonData:
+       httpHeaderName1: "X-Scope-OrgId"
+     secureJsonData:
+       httpHeaderValue1: "loki"
+
+persistence:
+  enabled: true
+  size: 5Gi

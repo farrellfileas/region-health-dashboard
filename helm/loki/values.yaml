@@ -1,0 +1,26 @@
+deploymentMode: SingleBinary
+
+loki:
+  storage:
+    type: filesystem
+  useTestSchema: True
+  commonConfig:
+    replication_factor: 1
+
+singleBinary:
+  # -- Number of replicas for the single binary
+  replicas: 1
+
+# Configuration for the write pod(s)
+write:
+  # -- Number of replicas for the write
+  replicas: 0
+
+# --  Configuration for the read pod(s)
+read:
+  # -- Number of replicas for the read
+  replicas: 0
+
+backend:
+  # -- Number of replicas for the backend
+  replicas: 0
