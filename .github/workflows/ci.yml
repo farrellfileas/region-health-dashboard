@@ -3,8 +3,14 @@ name: CI
 on:
   push:
     branches: [main]
+    paths:
+      - 'app/**'
+      - '.github/workflows/ci.yml'
   pull_request:
     branches: [main]
+    paths:
+      - 'app/**'
+      - '.github/workflows/ci.yml'
 
 env:
   PYTHON_VERSION: "3.11"
@@ -85,6 +91,9 @@ jobs:
     if: github.event_name == 'push' && github.ref == 'refs/heads/main'
 
     steps:
+      - name: Log in to OCIR
+        run: echo "${{ secrets.OCIR_TOKEN }}" | docker login ${{ secrets.OCIR_REGISTRY }} -u ${{ secrets.OCIR_USERNAME }} --password-stdin
+
       - name: Scan API image
         uses: aquasecurity/trivy-action@master
         with:
