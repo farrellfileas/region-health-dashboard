@@ -1,0 +1,5 @@
+extraScrapeConfigs: | 
+  - job_name: 'fastapi'
+    metrics_path: /metrics
+    static_configs:
+      - targets: ["api-service.region-health.svc.cluster.local:80"]
