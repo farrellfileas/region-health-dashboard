@@ -6,6 +6,8 @@ import structlog
 from contextlib import asynccontextmanager
 from fastapi import FastAPI, HTTPException
 from prometheus_fastapi_instrumentator import Instrumentator
+import random
+
 
 structlog.configure(
     processors=[
@@ -66,3 +68,9 @@ async def list_incidents():
     result = [dict(r) for r in rows]
     log.info("incidents_fetched", count=len(result))
     return {"incidents": result}
+
+@app.get("/error")
+async def trigger_error():
+    if random.random() < 0.5:
+        raise HTTPException(status_code=500, detail="Deliberate test error")
+    return {"status": "ok"}
