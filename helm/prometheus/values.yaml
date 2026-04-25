@@ -3,3 +3,52 @@ extraScrapeConfigs: |
     metrics_path: /metrics
     static_configs:
       - targets: ["api-service.region-health.svc.cluster.local:80"]
+
+#
+serverFiles:
+  alerting_rules.yml:
+    groups:
+      - name: slo.rules
+        rules:
+          - alert: HighBurnRateCritical
+            # SLO = 99.9%
+            # Burn rate check = 14. Error budget would be finished in 2 days in a 28 day window
+            expr: |
+              (
+                rate(http_requests_total{status="5xx"}[1h])
+                /
+                rate(http_requests_total[1h])
+              ) / 0.001 > 14 
+              and
+              (
+                rate(http_requests_total{status="5xx"}[5m])
+                /
+                rate(http_requests_total[5m])
+              ) / 0.001 > 14 
+            for: 2m
+            labels:
+              severity: critical
+            annotations:
+              summary: "CRITICAL: High burn rate detected"
+              description: "Error budget will be exhausted in 2 days"
+          - alert: HighBurnRateWarning
+            # SLO = 99.9%
+            # Burn rate check = 6. Error budget would be finished in 4.66 days in a 28 day window
+            expr: |
+              (
+                rate(http_requests_total{status="5xx"}[6h])
+                /
+                rate(http_requests_total[6h])
+              ) / 0.001 > 6 
+              and
+              (
+                rate(http_requests_total{status="5xx"}[30m])
+                /
+                rate(http_requests_total[30m])
+              ) / 0.001 > 6 
+            for: 2m
+            labels:
+              severity: warning
+            annotations:
+              summary: "WARNING: High burn rate detected"
+              description: "Error budget will be exhausted in 4.66 days"
