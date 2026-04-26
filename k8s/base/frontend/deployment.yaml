@@ -19,7 +19,7 @@ spec:
         - name: ocir-secret
       containers:
       - name: frontend-container
-        image: phx.ocir.io/axhcuwsuvvsi/region-health/frontend:2163572
+        image: phx.ocir.io/axhcuwsuvvsi/region-health/frontend:2c2d535
         ports:
           - containerPort: 80
         resources:
