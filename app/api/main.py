@@ -69,8 +69,10 @@ async def list_incidents():
     log.info("incidents_fetched", count=len(result))
     return {"incidents": result}
 
+
 @app.get("/error")
 async def trigger_error():
     if random.random() < 0.5:
+        log.error("Deliberate test error triggered")
         raise HTTPException(status_code=500, detail="Deliberate test error")
     return {"status": "ok"}
