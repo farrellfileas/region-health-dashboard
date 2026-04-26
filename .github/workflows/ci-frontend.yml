@@ -1,80 +1,26 @@
-name: CI
+name: CI Frontend
 
 on:
   push:
     branches: [main]
     paths:
-      - 'app/**'
-      - '.github/workflows/ci.yml'
+      - 'app/frontend/**'
+      - '.github/workflows/ci-frontend.yml'
   pull_request:
     branches: [main]
     paths:
-      - 'app/**'
-      - '.github/workflows/ci.yml'
-
-env:
-  PYTHON_VERSION: "3.11"
-  POSTGRES_VERSION: "16-alpine"
+      - 'app/frontend/**'
+      - '.github/workflows/ci-frontend.yml'
 
 jobs:
-  test:
-    runs-on: ubuntu-latest
-
-    services:
-      postgres:
-        image: postgres:16-alpine  # keep in sync with env.POSTGRES_VERSION above
-        env:
-          POSTGRES_USER: health
-          POSTGRES_PASSWORD: health
-          POSTGRES_DB: health
-        ports:
-          - 5432:5432
-        options: >-
-          --health-cmd pg_isready
-          --health-interval 10s
-          --health-timeout 5s
-          --health-retries 5
-
-    env:
-      DATABASE_URL: postgresql://health:health@localhost:5432/health
-
-    steps:
-      - uses: actions/checkout@v4
-
-      - uses: actions/setup-python@v5
-        with:
-          python-version: ${{ env.PYTHON_VERSION }}
-
-      - name: Install dependencies
-        run: |
-          pip install -r app/api/requirements.txt
-          pip install -r app/api/requirements-dev.txt
-
-      - name: Apply schema
-        run: |
-          PGPASSWORD=health psql -h localhost -U health -d health -f app/postgres/schema.sql
-
-      - name: Run tests
-        working-directory: app/api
-        run: pytest tests/ -v
-
   build-push-sha:
     runs-on: ubuntu-latest
-    needs: test
-    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
 
     steps:
       - uses: actions/checkout@v4
 
       - name: Log in to OCIR
         run: echo "${{ secrets.OCIR_TOKEN }}" | docker login ${{ secrets.OCIR_REGISTRY }} -u ${{ secrets.OCIR_USERNAME }} --password-stdin
-
-      - name: Build and push API image
-        run: |
-          IMAGE=${{ secrets.OCIR_REGISTRY }}/${{ secrets.OCIR_NAMESPACE }}/region-health/api
-          TAG=${GITHUB_SHA::7}
-          docker build -t $IMAGE:$TAG app/api
-          docker push $IMAGE:$TAG
 
       - name: Build and push frontend image
         run: |
@@ -96,14 +42,6 @@ jobs:
         run: echo "TAG=${GITHUB_SHA::7}" >> $GITHUB_OUTPUT
         id: vars
 
-      - name: Scan API image
-        uses: aquasecurity/trivy-action@master
-        with:
-          image-ref: ${{ secrets.OCIR_REGISTRY }}/${{ secrets.OCIR_NAMESPACE }}/region-health/api:${{ steps.vars.outputs.TAG }}
-          format: table
-          exit-code: "1"
-          severity: CRITICAL
-
       - name: Scan frontend image
         uses: aquasecurity/trivy-action@master
         with:
@@ -111,7 +49,7 @@ jobs:
           format: table
           exit-code: "1"
           severity: CRITICAL
-  
+
   push-latest:
     runs-on: ubuntu-latest
     needs: scan
@@ -123,14 +61,6 @@ jobs:
       - name: Log in to OCIR
         run: echo "${{ secrets.OCIR_TOKEN }}" | docker login ${{ secrets.OCIR_REGISTRY }} -u ${{ secrets.OCIR_USERNAME }} --password-stdin
 
-      - name: Build and push API image
-        run: |
-          IMAGE=${{ secrets.OCIR_REGISTRY }}/${{ secrets.OCIR_NAMESPACE }}/region-health/api
-          TAG=${GITHUB_SHA::7}
-          docker pull $IMAGE:$TAG
-          docker tag $IMAGE:$TAG $IMAGE:latest
-          docker push $IMAGE:latest
-
       - name: Build and push frontend image
         run: |
           IMAGE=${{ secrets.OCIR_REGISTRY }}/${{ secrets.OCIR_NAMESPACE }}/region-health/frontend
@@ -138,7 +68,7 @@ jobs:
           docker pull $IMAGE:$TAG
           docker tag $IMAGE:$TAG $IMAGE:latest
           docker push $IMAGE:latest
-    
+
   update-app-version:
     runs-on: ubuntu-latest
     needs: scan
@@ -152,12 +82,11 @@ jobs:
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: update-versions
+      - name: update-frontend-version
         run: |
-          sed -i "s|region-health/api:.*|region-health/api:${GITHUB_SHA::7}|" k8s/base/api/deployment.yaml
           sed -i "s|region-health/frontend:.*|region-health/frontend:${GITHUB_SHA::7}|" k8s/base/frontend/deployment.yaml
           git config user.email "ci@github.com"
           git config user.name "GitHub Actions"
-          git add k8s/base/api/deployment.yaml k8s/base/frontend/deployment.yaml
-          git commit -m "ci: update images to ${GITHUB_SHA::7}"
+          git add k8s/base/frontend/deployment.yaml
+          git commit -m "ci: update frontend image to ${GITHUB_SHA::7}"
           git push

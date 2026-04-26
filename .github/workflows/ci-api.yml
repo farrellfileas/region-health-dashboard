@@ -1,0 +1,139 @@
+name: CI API
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'app/api/**'
+      - '.github/workflows/ci-api.yml'
+  pull_request:
+    branches: [main]
+    paths:
+      - 'app/api/**'
+      - '.github/workflows/ci-api.yml'
+
+env:
+  PYTHON_VERSION: "3.11"
+  POSTGRES_VERSION: "16-alpine"
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_USER: health
+          POSTGRES_PASSWORD: health
+          POSTGRES_DB: health
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+
+    env:
+      DATABASE_URL: postgresql://health:health@localhost:5432/health
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+
+      - name: Install dependencies
+        run: |
+          pip install -r app/api/requirements.txt
+          pip install -r app/api/requirements-dev.txt
+
+      - name: Apply schema
+        run: |
+          PGPASSWORD=health psql -h localhost -U health -d health -f app/postgres/schema.sql
+
+      - name: Run tests
+        working-directory: app/api
+        run: pytest tests/ -v
+
+  build-push-sha:
+    runs-on: ubuntu-latest
+    needs: test
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Log in to OCIR
+        run: echo "${{ secrets.OCIR_TOKEN }}" | docker login ${{ secrets.OCIR_REGISTRY }} -u ${{ secrets.OCIR_USERNAME }} --password-stdin
+
+      - name: Build and push API image
+        run: |
+          IMAGE=${{ secrets.OCIR_REGISTRY }}/${{ secrets.OCIR_NAMESPACE }}/region-health/api
+          TAG=${GITHUB_SHA::7}
+          docker build -t $IMAGE:$TAG app/api
+          docker push $IMAGE:$TAG
+
+  scan:
+    runs-on: ubuntu-latest
+    needs: build-push-sha
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+
+    steps:
+      - name: Log in to OCIR
+        run: echo "${{ secrets.OCIR_TOKEN }}" | docker login ${{ secrets.OCIR_REGISTRY }} -u ${{ secrets.OCIR_USERNAME }} --password-stdin
+
+      - name: Set image tag
+        run: echo "TAG=${GITHUB_SHA::7}" >> $GITHUB_OUTPUT
+        id: vars
+
+      - name: Scan API image
+        uses: aquasecurity/trivy-action@master
+        with:
+          image-ref: ${{ secrets.OCIR_REGISTRY }}/${{ secrets.OCIR_NAMESPACE }}/region-health/api:${{ steps.vars.outputs.TAG }}
+          format: table
+          exit-code: "1"
+          severity: CRITICAL
+
+  push-latest:
+    runs-on: ubuntu-latest
+    needs: scan
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Log in to OCIR
+        run: echo "${{ secrets.OCIR_TOKEN }}" | docker login ${{ secrets.OCIR_REGISTRY }} -u ${{ secrets.OCIR_USERNAME }} --password-stdin
+
+      - name: Build and push API image
+        run: |
+          IMAGE=${{ secrets.OCIR_REGISTRY }}/${{ secrets.OCIR_NAMESPACE }}/region-health/api
+          TAG=${GITHUB_SHA::7}
+          docker pull $IMAGE:$TAG
+          docker tag $IMAGE:$TAG $IMAGE:latest
+          docker push $IMAGE:latest
+
+  update-app-version:
+    runs-on: ubuntu-latest
+    needs: scan
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+
+    permissions:
+      contents: write
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: update-api-version
+        run: |
+          sed -i "s|region-health/api:.*|region-health/api:${GITHUB_SHA::7}|" k8s/base/api/deployment.yaml
+          git config user.email "ci@github.com"
+          git config user.name "GitHub Actions"
+          git add k8s/base/api/deployment.yaml
+          git commit -m "ci: update api image to ${GITHUB_SHA::7}"
+          git push

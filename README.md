@@ -58,7 +58,8 @@ OKE Worker Nodes (10.0.1.0/24)      OKE Endpoint (10.0.0.0/24)
 │   ├── grafana/
 │   └── loki/
 ├── .github/workflows/
-│   ├── ci.yml              # Build, test, scan, push image
+│   ├── ci-api.yml          # API build, test, scan, push
+│   ├── ci-frontend.yml     # Frontend build, scan, push
 │   └── cd.yml              # Placeholder — ArgoCD owns CD
 └── runbooks/
 ```
@@ -151,14 +152,28 @@ All workloads use `app.kubernetes.io/` labels and explicit resource requests/lim
 
 ## CI Pipeline
 
-GitHub Actions runs on every push/PR:
+GitHub Actions runs independent workflows triggered by changes to specific app components.
 
-1. Lint + test the FastAPI app
-2. Build Docker image
-3. Scan image for vulnerabilities
-4. Push to OCIR (`phx.ocir.io/...`)
+### `ci-api.yml`
+Triggers on changes to `app/api/**`:
 
-Secrets (`OCIR_TOKEN`, `DB_PASSWORD`, etc.) are stored in GitHub Actions secrets — never in code.
+1. Test FastAPI with Postgres (pytest)
+2. Build API Docker image and push to OCIR
+3. Scan image for critical vulnerabilities (Trivy)
+4. Tag as `:latest`
+5. Update `k8s/base/api/deployment.yaml` with new image SHA
+
+### `ci-frontend.yml`
+Triggers on changes to `app/frontend/**`:
+
+1. Build frontend Docker image and push to OCIR
+2. Scan image for critical vulnerabilities (Trivy)
+3. Tag as `:latest`
+4. Update `k8s/base/frontend/deployment.yaml` with new image SHA
+
+**Note:** Changes to `app/postgres/**` do not trigger either workflow. Database schema is applied during deployment.
+
+All secrets (`OCIR_TOKEN`, `OCIR_USERNAME`, `OCIR_REGISTRY`, `OCIR_NAMESPACE`) are stored in GitHub Actions secrets — never in code.
 
 ## Observability
 
