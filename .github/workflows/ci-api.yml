@@ -121,6 +121,10 @@ jobs:
     needs: scan
     if: github.event_name == 'push' && github.ref == 'refs/heads/main'
 
+    concurrency:
+      group: update-deployment-versions
+      cancel-in-progress: false
+
     permissions:
       contents: write
 
@@ -131,6 +135,9 @@ jobs:
 
       - name: update-api-version
         run: |
+          # git pull --rebase is technically unnecessary due to concurrency lock,
+          # but included for robustness in case of future workflow changes
+          git pull --rebase
           sed -i "s|region-health/api:.*|region-health/api:${GITHUB_SHA::7}|" k8s/base/api/deployment.yaml
           git config user.email "ci@github.com"
           git config user.name "GitHub Actions"

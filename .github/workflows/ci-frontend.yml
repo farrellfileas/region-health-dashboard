@@ -74,6 +74,10 @@ jobs:
     needs: scan
     if: github.event_name == 'push' && github.ref == 'refs/heads/main'
 
+    concurrency:
+      group: update-deployment-versions
+      cancel-in-progress: false
+
     permissions:
       contents: write
 
@@ -84,6 +88,9 @@ jobs:
 
       - name: update-frontend-version
         run: |
+          # git pull --rebase is technically unnecessary due to concurrency lock,
+          # but included for robustness in case of future workflow changes
+          git pull --rebase
           sed -i "s|region-health/frontend:.*|region-health/frontend:${GITHUB_SHA::7}|" k8s/base/frontend/deployment.yaml
           git config user.email "ci@github.com"
           git config user.name "GitHub Actions"
