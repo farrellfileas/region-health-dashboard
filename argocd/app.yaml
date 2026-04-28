@@ -9,8 +9,6 @@ spec:
     repoURL: https://github.com/farrellfileas/region-health-dashboard
     targetRevision: HEAD
     path: k8s/base
-    directory:
-      recurse: true
   destination:
     server: https://kubernetes.default.svc
     namespace: region-health
