@@ -15,6 +15,6 @@ resources:
 configMapGenerator:
   - name: postgres-schema
     files:
-      - schema.sql=../../app/postgres/schema.sql
+      - schema.sql=postgres/schema.sql
     options:
       disableNameSuffixHash: true
