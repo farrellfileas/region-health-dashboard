@@ -8,7 +8,12 @@ A production-grade SRE platform running on Oracle Kubernetes Engine (OKE), built
 Internet
    │
    ▼
-Load Balancer (10.0.2.0/24)
+OCI Load Balancer (10.0.2.0/24)
+   │
+   ▼
+ingress-nginx (NodePort)
+   │  /        → frontend-service
+   └  /api/**  → api-service (rewrite-target strips /api prefix)
    │
    ▼
 OKE Worker Nodes (10.0.1.0/24)      OKE Endpoint (10.0.0.0/24)
@@ -20,9 +25,11 @@ OKE Worker Nodes (10.0.1.0/24)      OKE Endpoint (10.0.0.0/24)
    └── Loki
 ```
 
-**Cloud:** OCI Free Tier (Always Free)
-**Cluster:** OKE Basic Cluster — 2x `VM.Standard.E5.Flex` (2 OCPU / 16 GB RAM each)
+**Cloud:** OCI
+**Cluster:** OKE Enhanced Cluster — 2x `VM.Standard.E5.Flex` (2 OCPU / 16 GB RAM each)
 **Total capacity:** 4 OCPU, 32 GB RAM, ~106 GB usable block volume
+
+![Cluster overview](docs/screenshots/01-cluster-overview.png)
 
 ## Stack
 
@@ -34,10 +41,17 @@ OKE Worker Nodes (10.0.1.0/24)      OKE Endpoint (10.0.0.0/24)
 | Database | Postgres 15 (StatefulSet) |
 | Frontend | Static HTML |
 | Metrics | Prometheus + `prometheus-fastapi-instrumentator` |
-| Dashboards | Grafana (SLO burn rates, incident MTTR) |
-| Logging | structlog → Loki → Grafana |
+| Dashboards | Grafana (API success rates, error log exploration) |
+| Logging | structlog (JSON) → Promtail → Loki → Grafana |
 | CI | GitHub Actions (build / test / scan / push to OCIR) |
-| CD | ArgoCD (GitOps, watches `k8s/overlays/`) |
+| CD | ArgoCD (GitOps, watches `k8s/base/`) |
+
+## Live Deployment
+
+This is a fully operational system running on OCI.
+
+**Frontend Status Page:**
+![Frontend dashboard](docs/screenshots/02-frontend-dashboard.png)
 
 ## Repo Structure
 
@@ -47,12 +61,9 @@ OKE Worker Nodes (10.0.1.0/24)      OKE Endpoint (10.0.0.0/24)
 ├── app/
 │   ├── api/                # FastAPI service
 │   ├── frontend/           # HTML status page
-│   └── postgres/           # K8s manifests + SQL schema
+│   └── postgres/           # K8s manifests (schema canonical copy is in k8s/base/postgres/)
 ├── k8s/
-│   ├── base/               # Raw Kubernetes manifests
-│   └── overlays/
-│       ├── dev/            # Kustomize overlay — dev
-│       └── prod/           # Kustomize overlay — prod
+│   └── base/               # Kustomize base — all manifests, watched directly by ArgoCD
 ├── observability/
 │   ├── prometheus/
 │   ├── grafana/
@@ -97,6 +108,8 @@ Returns `503` with `"status": "degraded"` if Postgres is unreachable.
 }
 ```
 
+![API curl response](docs/screenshots/03-api-curl-response.png)
+
 ## Database Schema
 
 ```sql
@@ -134,21 +147,25 @@ region           = "us-phoenix-1"
 
 Remote state is stored in OCI Object Storage via the S3-compatible backend configured in `backend.tf`.
 
+![Terraform resources](docs/screenshots/04-terraform-resources.png)
+
 ## Kubernetes
 
-Manifests live in `k8s/base/`. Kustomize overlays in `k8s/overlays/dev` and `k8s/overlays/prod` patch environment-specific values.
+Manifests live in `k8s/base/` with a `kustomization.yaml` — ArgoCD detects Kustomize mode automatically and runs `kustomize build k8s/base` on every sync.
 
 ArgoCD syncs automatically on merge to `main`.
 
-**Manual apply (dev only):**
+**Manual apply:**
 
 ```bash
-kubectl apply -k k8s/overlays/dev
+kubectl apply -k k8s/base
 ```
 
-**Namespace:** `oci-health`
+**Namespace:** `region-health`
 
 All workloads use `app.kubernetes.io/` labels and explicit resource requests/limits.
+
+![kubectl pods](docs/screenshots/05-kubectl-pods.png)
 
 ## CI Pipeline
 
@@ -171,15 +188,28 @@ Triggers on changes to `app/frontend/**`:
 3. Tag as `:latest`
 4. Update `k8s/base/frontend/deployment.yaml` with new image SHA
 
-**Note:** Changes to `app/postgres/**` do not trigger either workflow. Database schema is applied during deployment.
+**Note:** Changes to `app/postgres/**` do not trigger either workflow. The canonical schema lives in `k8s/base/postgres/schema.sql` and is mounted via Kustomize `configMapGenerator` into the Postgres pod at `/docker-entrypoint-initdb.d` — it runs once on a fresh PVC only.
 
 All secrets (`OCIR_TOKEN`, `OCIR_USERNAME`, `OCIR_REGISTRY`, `OCIR_NAMESPACE`) are stored in GitHub Actions secrets — never in code.
+
+![GitHub Actions](docs/screenshots/06-github-actions.png)
+
+![Git commits](docs/screenshots/07-git-commits.png)
 
 ## Observability
 
 - **Prometheus** scrapes `/metrics` from the FastAPI pods
-- **Grafana** displays SLO dashboards including error-budget burn rates and incident MTTR
-- **Loki** ingests structured JSON logs emitted by `structlog`
+- **Grafana** displays API success rates by endpoint and error log exploration via Loki
+- **Promtail** scrapes structured JSON logs from FastAPI pods and ships them to Loki
+
+### Incident Detection
+
+The `/incidents` endpoint queries a table seeded with demo data for visualization purposes. In a production system, this would be populated by:
+- Prometheus alerting rules firing `critical` and `warning` alerts
+- Alert handler writing incidents to the `incidents` table
+- Grafana dashboard showing real-time incident status
+
+For this demo, seed data is applied manually via `kubectl exec` into the Postgres pod.
 
 Log format (stdout):
 
@@ -187,17 +217,8 @@ Log format (stdout):
 {"event": "health_check", "status": "ok", "level": "info", "timestamp": "2026-04-20T10:00:00Z"}
 ```
 
-## Local Development
+![Grafana API observability](docs/screenshots/08-grafana-slo.png)
 
-```bash
-# API
-cd app/api
-pip install -r requirements.txt
-DATABASE_URL=postgresql://health:health@localhost:5432/health uvicorn main:app --reload
-
-# Frontend
-open app/frontend/index.html
-```
 
 ## Prerequisites
 
