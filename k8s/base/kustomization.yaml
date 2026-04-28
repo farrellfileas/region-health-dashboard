@@ -4,7 +4,6 @@ kind: Kustomization
 resources:
   - api/deployment.yaml
   - api/hpa.yaml
-  - api/rbac.yaml
   - api/service.yaml
   - frontend/deployment.yaml
   - frontend/service.yaml
