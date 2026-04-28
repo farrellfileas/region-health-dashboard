@@ -52,7 +52,7 @@ jobs:
 
       - name: Apply schema
         run: |
-          PGPASSWORD=health psql -h localhost -U health -d health -f app/postgres/schema.sql
+          PGPASSWORD=health psql -h localhost -U health -d health -f k8s/base/postgres/schema.sql
 
       - name: Run tests
         working-directory: app/api
