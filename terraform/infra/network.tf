@@ -253,8 +253,8 @@ resource "oci_core_security_list" "worker" {
 
   # Allow LB to run health check in worker node
   ingress_security_rules {
-    protocol    = "6"
-    source = local.lb_subnet_cidr
+    protocol = "6"
+    source   = local.lb_subnet_cidr
     tcp_options {
       min = 10256
       max = 10256
