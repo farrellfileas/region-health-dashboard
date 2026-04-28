@@ -145,7 +145,7 @@ private_key_path = "~/.oci/oci_api_key.pem"
 region           = "us-phoenix-1"
 ```
 
-Remote state is stored in OCI Object Storage via the S3-compatible backend configured in `backend.tf`.
+State is stored locally (`terraform.tfstate`, gitignored). In production this should use the OCI Object Storage S3-compatible backend defined in `backend.tf` for shared access and locking.
 
 ![Terraform resources](docs/screenshots/04-terraform-resources.png)
 
