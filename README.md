@@ -1,4 +1,4 @@
-# OCI Region Health Dashboard
+# Region Health Dashboard
 
 A production-grade SRE platform running on Oracle Kubernetes Engine (OKE), built to demonstrate end-to-end infrastructure ownership: Terraform provisioning, Kubernetes operations, GitOps deployment, and full-stack observability.
 
@@ -211,7 +211,8 @@ ArgoCD watches `k8s/base` for changes and automatically syncs the deployed state
 - Automated sync enabled
 - Prune orphaned resources
 - Self-heal enabled (reconciles on cluster drift)
-- Namespace: `region-health`
+
+ArgoCD (running in the `argocd` namespace) syncs all resources into the `region-health` namespace.
 
 This completes the GitOps loop: developer push → CI builds and updates manifest → ArgoCD syncs → running pods updated.
 
@@ -239,12 +240,7 @@ Log format (stdout):
 ![Grafana API observability](docs/screenshots/09-grafana-slo.png)
 
 
-## Prerequisites
+## Getting Started
 
-| Tool | Version |
-|---|---|
-| kubectl | 1.35+ |
-| Terraform | 1.14+ |
-| Helm | 3.20+ |
-| OCI CLI | 3.78+ |
-| Docker | 29+ |
+See [SETUP.md](SETUP.md) for deployment and local development instructions.
+
