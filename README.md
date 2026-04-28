@@ -72,7 +72,7 @@ This is a fully operational system running on OCI.
 │   ├── ci-api.yml          # API build, test, scan, push
 │   ├── ci-frontend.yml     # Frontend build, scan, push
 │   └── cd.yml              # Placeholder — ArgoCD owns CD
-└── runbooks/
+
 ```
 
 ## API Endpoints
