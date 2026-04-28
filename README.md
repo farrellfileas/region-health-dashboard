@@ -38,7 +38,7 @@ OKE Worker Nodes (10.0.1.0/24)      OKE Endpoint (10.0.0.0/24)
 | Infrastructure | Terraform + OCI |
 | Orchestration | OKE (Kubernetes) |
 | API | FastAPI (Python 3.11) |
-| Database | Postgres 15 (StatefulSet) |
+| Database | Postgres 16 (StatefulSet) |
 | Frontend | Static HTML |
 | Metrics | Prometheus + `prometheus-fastapi-instrumentator` |
 | Dashboards | Grafana (API success rates, error log exploration) |
@@ -196,6 +196,25 @@ All secrets (`OCIR_TOKEN`, `OCIR_USERNAME`, `OCIR_REGISTRY`, `OCIR_NAMESPACE`) a
 
 ![Git commits](docs/screenshots/07-git-commits.png)
 
+## CD Pipeline
+
+ArgoCD watches `k8s/base` for changes and automatically syncs the deployed state to match the repository. On every commit to `main`:
+
+1. CI workflows update the image SHAs in `k8s/base/api/deployment.yaml` and `k8s/base/frontend/deployment.yaml`
+2. ArgoCD detects the git change (via webhook or polling, ~3min interval default)
+3. ArgoCD runs `kustomize build k8s/base` to produce the manifests
+4. ArgoCD applies diffs to the cluster and reconciles state via prune + selfHeal policies
+
+![ArgoCD Pipeline](docs/screenshots/08-argocd.png)
+
+**Configuration:** `argocd/app.yaml`
+- Automated sync enabled
+- Prune orphaned resources
+- Self-heal enabled (reconciles on cluster drift)
+- Namespace: `region-health`
+
+This completes the GitOps loop: developer push → CI builds and updates manifest → ArgoCD syncs → running pods updated.
+
 ## Observability
 
 - **Prometheus** scrapes `/metrics` from the FastAPI pods
@@ -217,7 +236,7 @@ Log format (stdout):
 {"event": "health_check", "status": "ok", "level": "info", "timestamp": "2026-04-20T10:00:00Z"}
 ```
 
-![Grafana API observability](docs/screenshots/08-grafana-slo.png)
+![Grafana API observability](docs/screenshots/09-grafana-slo.png)
 
 
 ## Prerequisites
