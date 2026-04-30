@@ -167,6 +167,10 @@ All workloads use `app.kubernetes.io/` labels and explicit resource requests/lim
 
 ![kubectl pods](docs/screenshots/05-kubectl-pods.png)
 
+All resources
+
+![kubectl all resources](docs/screenshots/kubernetes_all_resources.gif)
+
 ## CI Pipeline
 
 GitHub Actions runs independent workflows triggered by changes to specific app components.
